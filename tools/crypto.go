@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"path/filepath"
 
 	"gopkg.in/square/go-jose.v2"
 )
@@ -68,6 +69,7 @@ func readFromURL(u *url.URL) ([]byte, error) {
 			},
 		})
 	case "file":
+		return ioutil.ReadFile(filepath.Join(u.Host, u.Path))
 	}
 	return nil, fmt.Errorf("unsupported url scheme [%s]", u)
 }
