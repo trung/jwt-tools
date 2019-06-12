@@ -30,7 +30,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:               "jwt",
-	Short:             "A command line program that provides tools for JWT and JWS",
+	Short:             "A command line program that provides tools for JWT using JWS and JWE",
 	PersistentPreRunE: configure,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return nil
