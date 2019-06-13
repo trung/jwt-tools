@@ -44,6 +44,7 @@ func init() {
 
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(decodeCmd)
+	rootCmd.AddCommand(encodeCmd)
 }
 
 func configure(_ *cobra.Command, _ []string) error {

@@ -21,6 +21,11 @@ package tools
 
 import (
 	"bytes"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -31,6 +36,9 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"strconv"
+
+	"golang.org/x/crypto/ed25519"
 
 	"gopkg.in/square/go-jose.v2"
 )
@@ -139,4 +147,131 @@ func loadJSONWebKey(json []byte, pub bool) (*jose.JSONWebKey, error) {
 		return nil, errors.New("priv/pub JWK key mismatch")
 	}
 	return &jwk, nil
+}
+
+func ReadSigningKey(u *url.URL) (jose.SignatureAlgorithm, crypto.PublicKey, crypto.PrivateKey, error) {
+	switch u.Scheme {
+	case "auto":
+		signatureAlgorithm := jose.SignatureAlgorithm(u.Host)
+		bits, _ := strconv.Atoi(u.Query().Get("bits"))
+		pub, priv, err := keygenSig(signatureAlgorithm, bits)
+		return signatureAlgorithm, pub, priv, err
+	case "file":
+	case "http":
+	case "https":
+	}
+	return "", nil, nil, fmt.Errorf("unsupported signing key url [%s]", u)
+}
+
+func ReadEncryptionKey(u *url.URL) (jose.KeyAlgorithm, jose.ContentEncryption, crypto.PublicKey, crypto.PrivateKey, error) {
+	switch u.Scheme {
+	case "auto":
+		algo := jose.KeyAlgorithm(u.Host)
+		bits, _ := strconv.Atoi(u.Query().Get("bits"))
+		enc := jose.A128GCM
+		encValue := u.Query().Get("enc")
+		if encValue != "" {
+			enc = jose.ContentEncryption(encValue)
+		}
+		pub, priv, err := keygenEnc(algo, bits)
+		return algo, enc, pub, priv, err
+	case "file":
+	case "http":
+	case "https":
+	}
+	return "", "", nil, nil, fmt.Errorf("unsupported encryption key url [%s]", u)
+}
+
+// KeygenSig generates keypair for corresponding SignatureAlgorithm.
+func keygenSig(alg jose.SignatureAlgorithm, bits int) (crypto.PublicKey, crypto.PrivateKey, error) {
+	switch alg {
+	case jose.ES256, jose.ES384, jose.ES512, jose.EdDSA:
+		keylen := map[jose.SignatureAlgorithm]int{
+			jose.ES256: 256,
+			jose.ES384: 384,
+			jose.ES512: 521, // sic!
+			jose.EdDSA: 256,
+		}
+		if bits != 0 && bits != keylen[alg] {
+			return nil, nil, errors.New("this `alg` does not support arbitrary key length")
+		}
+	case jose.RS256, jose.RS384, jose.RS512, jose.PS256, jose.PS384, jose.PS512:
+		if bits == 0 {
+			bits = 2048
+		}
+		if bits < 2048 {
+			return nil, nil, errors.New("too short key for RSA `alg`, 2048+ is required")
+		}
+	}
+	switch alg {
+	case jose.ES256:
+		// The cryptographic operations are implemented using constant-time algorithms.
+		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			return nil, nil, err
+		}
+		return key.Public(), key, nil
+	case jose.ES384:
+		// NB: The cryptographic operations do not use constant-time algorithms.
+		key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+		if err != nil {
+			return nil, nil, err
+		}
+		return key.Public(), key, nil
+	case jose.ES512:
+		// NB: The cryptographic operations do not use constant-time algorithms.
+		key, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+		if err != nil {
+			return nil, nil, err
+		}
+		return key.Public(), key, nil
+	case jose.EdDSA:
+		pub, key, err := ed25519.GenerateKey(rand.Reader)
+		return pub, key, err
+	case jose.RS256, jose.RS384, jose.RS512, jose.PS256, jose.PS384, jose.PS512:
+		key, err := rsa.GenerateKey(rand.Reader, bits)
+		if err != nil {
+			return nil, nil, err
+		}
+		return key.Public(), key, nil
+	default:
+		return nil, nil, fmt.Errorf("unknown `alg`:%s for `use` = `sig`", alg)
+	}
+}
+
+// KeygenEnc generates keypair for corresponding KeyAlgorithm.
+func keygenEnc(alg jose.KeyAlgorithm, bits int) (crypto.PublicKey, crypto.PrivateKey, error) {
+	switch alg {
+	case jose.RSA1_5, jose.RSA_OAEP, jose.RSA_OAEP_256:
+		if bits == 0 {
+			bits = 2048
+		}
+		if bits < 2048 {
+			return nil, nil, errors.New("too short key for RSA `alg`, 2048+ is required")
+		}
+		key, err := rsa.GenerateKey(rand.Reader, bits)
+		if err != nil {
+			return nil, nil, err
+		}
+		return key.Public(), key, nil
+	case jose.ECDH_ES, jose.ECDH_ES_A128KW, jose.ECDH_ES_A192KW, jose.ECDH_ES_A256KW:
+		var crv elliptic.Curve
+		switch bits {
+		case 0, 256:
+			crv = elliptic.P256()
+		case 384:
+			crv = elliptic.P384()
+		case 521:
+			crv = elliptic.P521()
+		default:
+			return nil, nil, errors.New("unknown elliptic curve bit length, use one of 256, 384, 521")
+		}
+		key, err := ecdsa.GenerateKey(crv, rand.Reader)
+		if err != nil {
+			return nil, nil, err
+		}
+		return key.Public(), key, nil
+	default:
+		return nil, nil, fmt.Errorf("unknown `alg`:%s for `use` = `enc`", alg)
+	}
 }
