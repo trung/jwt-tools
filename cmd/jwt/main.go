@@ -19,7 +19,12 @@
 
 package main
 
-import "github.com/trung/jwt-tools/cmd"
+import (
+	"fmt"
+	"os"
+
+	"github.com/trung/jwt-tools/cmd"
+)
 
 var (
 	// to be injected during build
@@ -29,5 +34,9 @@ var (
 )
 
 func main() {
-	cmd.Execute(Version, Commit)
+	cmd.Version, cmd.Commit = Version, Commit
+	if err := cmd.RootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }

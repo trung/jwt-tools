@@ -26,14 +26,15 @@ import (
 )
 
 var (
-	version, commit string
+	Version string
+	Commit  string
 )
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Display version of this tool",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Version:", version)
-		fmt.Println(" Commit:", commit)
+		fmt.Println("Version:", Version)
+		fmt.Println(" Commit:", Commit)
 	},
 }

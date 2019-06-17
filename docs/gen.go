@@ -23,11 +23,18 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra/doc"
+
 	"github.com/trung/jwt-tools/cmd"
 )
 
+// GenDoc generates markdown docs for the command
+func GenDoc(dir string) error {
+	return doc.GenMarkdownTree(cmd.RootCmd, dir)
+}
+
 func main() {
-	if err := cmd.GenDoc("./docs"); err != nil {
+	if err := GenDoc("./docs"); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}

@@ -16,7 +16,7 @@ build:
 		-arch="${XC_ARCH}" \
 		-ldflags="${LD_FLAGS}" \
 		-output "build/{{.OS}}_{{.Arch}}/jwt" \
-		.
+		./cmd/jwt
 	@echo
 	@echo Done!
 	@ls build/*
