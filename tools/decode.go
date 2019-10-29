@@ -44,9 +44,6 @@ func DecodeJWT(tokenReader io.Reader, isJWS, isJWE bool, opts *VerificationOptio
 	if err != nil {
 		return nil, nil, err
 	}
-	if !isJWE && !isJWS {
-		return nil, nil, fmt.Errorf("unsupported token. Token must be with JWS and/or JWE")
-	}
 	parseFunc := func(string) (*jwt.JSONWebToken, error) {
 		return nil, fmt.Errorf("unimplemented")
 	}
@@ -55,6 +52,9 @@ func DecodeJWT(tokenReader io.Reader, isJWS, isJWE bool, opts *VerificationOptio
 	}
 	if isJWE && !isJWS {
 		parseFunc = jwt.ParseEncrypted
+	}
+	if !isJWE && !isJWS {
+		parseFunc = jwt.ParseSigned
 	}
 	if isJWS && isJWE {
 		if opts == nil || opts.DecryptionKeyFunc == nil {
@@ -94,7 +94,7 @@ func DecodeJWT(tokenReader io.Reader, isJWS, isJWE bool, opts *VerificationOptio
 	}
 	headersB64 := strings.Split(token, ".")[0]
 	var header map[string]interface{}
-	if err := json.NewDecoder(base64.NewDecoder(base64.StdEncoding, strings.NewReader(headersB64))).Decode(&header); err != nil {
+	if err := json.NewDecoder(base64.NewDecoder(base64.RawURLEncoding, strings.NewReader(headersB64))).Decode(&header); err != nil {
 		return nil, nil, err
 	}
 	return header, payload, nil

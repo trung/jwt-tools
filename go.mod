@@ -7,3 +7,5 @@ require (
 	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
 	gopkg.in/square/go-jose.v2 v2.3.1
 )
+
+go 1.13
